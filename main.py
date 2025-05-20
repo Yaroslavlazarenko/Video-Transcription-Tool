@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import shutil
 import tempfile
-from google import genai
+import google.generativeai as genai
 import traceback
 import docx
 from docx import Document
