@@ -22,7 +22,45 @@ fi
 # Установка FFmpeg для обработки видео
 echo "Установка FFmpeg..."
 if ! command -v ffmpeg &> /dev/null; then
+    # Попытка установить FFmpeg из стандартных репозиториев
     sudo apt-get install -y ffmpeg
+    
+    # Проверяем, установился ли FFmpeg
+    if ! command -v ffmpeg &> /dev/null; then
+        echo "Не удалось установить FFmpeg из стандартных репозиториев. Пробуем альтернативный метод..."
+        
+        # Устанавливаем необходимые пакеты для сборки
+        sudo apt-get install -y build-essential yasm cmake libtool libc6 libc6-dev unzip wget libnuma1 libnuma-dev
+        
+        # Создаем временную директорию для сборки
+        TEMP_DIR=$(mktemp -d)
+        cd $TEMP_DIR
+        
+        # Скачиваем и устанавливаем FFmpeg из официального репозитория
+        wget https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2
+        tar xjf ffmpeg-snapshot.tar.bz2
+        cd ffmpeg
+        
+        # Конфигурируем и собираем FFmpeg
+        ./configure --prefix=/usr/local --enable-gpl --enable-nonfree
+        make -j$(nproc)
+        sudo make install
+        
+        # Возвращаемся в исходную директорию и удаляем временные файлы
+        cd -
+        rm -rf $TEMP_DIR
+        
+        # Проверяем, установился ли FFmpeg
+        if command -v ffmpeg &> /dev/null; then
+            echo "FFmpeg успешно установлен из исходников."
+        else
+            echo "ВНИМАНИЕ: Не удалось установить FFmpeg. Пожалуйста, установите его вручную."
+        fi
+    else
+        echo "FFmpeg успешно установлен из стандартных репозиториев."
+    fi
+else
+    echo "FFmpeg уже установлен."
 fi
 
 # Создание виртуального окружения Python (опционально)
