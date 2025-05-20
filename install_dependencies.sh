@@ -1,105 +1,167 @@
 #!/bin/bash
 
-# Скрипт для установки всех зависимостей для проекта split_video
+# Скрипт для установки всех зависимостей для проекта Video-Transcription-Tool
 # Устанавливает Python, FFmpeg и необходимые Python-пакеты
 
-echo "Начинаем установку зависимостей..."
+echo "Начинаем установку зависимостей для Video-Transcription-Tool..."
 
-# Обновление списка пакетов
-echo "Обновление списка пакетов..."
-sudo apt-get update
+# --- Шаг 1: Подготовка репозиториев ---
+# Проверка и удаление несовместимого FFmpeg PPA, если он есть.
+# Этот PPA (jonathonf/ffmpeg-4) не поддерживает Ubuntu Noble (24.04) и вызывает ошибку 404.
+# Удаляем его ПЕРЕД обновлением списка пакетов.
+echo "Проверка и удаление несовместимого FFmpeg PPA..."
+# Проверяем наличие строки PPA в sources.list и файлах sources.list.d
+if grep -q "jonathonf/ffmpeg-4" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+    echo "Найден PPA jonathonf/ffmpeg-4. Удаляем его, так как он не поддерживает вашу версию Ubuntu."
+    sudo add-apt-repository --remove ppa:jonathonf/ffmpeg-4 -y
+    # После удаления PPA нужно снова обновить список пакетов
+    echo "Повторное обновление списка пакетов после удаления PPA..."
+    sudo apt-get update
+else
+    echo "PPA jonathonf/ffmpeg-4 не найден, или уже удален."
+    # Если PPA не было, просто обновляем список пакетов как обычно
+    echo "Обновление списка пакетов..."
+    sudo apt-get update
+fi
+
+# Проверка на ошибки после обновления списка пакетов
+if [ $? -ne 0 ]; then
+    echo "ВНИМАНИЕ: Обновление списка пакетов завершилось с ошибками."
+    echo "Это может указывать на другие проблемы с репозиториями и помешать установке."
+    echo "Пожалуйста, проверьте вывод apt update выше на предмет других ошибок."
+    # Можно добавить exit 1 здесь, если хотите прервать установку при ошибке apt update
+    # exit 1
+fi
+
+# --- Шаг 2: Установка системных пакетов ---
 
 # Установка Python и pip, если они не установлены
 echo "Установка Python и pip..."
+# Проверяем наличие python3
 if ! command -v python3 &> /dev/null; then
+    echo "Python3 не найден. Устанавливаем..."
     sudo apt-get install -y python3
+else
+    echo "Python3 уже установлен."
 fi
 
+# Проверяем наличие pip3 (часто идет вместе с python3, но лучше проверить)
 if ! command -v pip3 &> /dev/null; then
+    echo "pip3 не найден. Устанавливаем..."
     sudo apt-get install -y python3-pip
+else
+    echo "pip3 уже установлен."
 fi
 
 # Установка FFmpeg для обработки видео
 echo "Установка FFmpeg..."
 if ! command -v ffmpeg &> /dev/null; then
-    # Попытка установить FFmpeg из стандартных репозиториев
+    echo "FFmpeg не установлен. Устанавливаем из стандартных репозиториев Ubuntu..."
+    # Теперь, когда PPA удален и apt update прошел, установка из стандартных репо должна работать без проблем на Ubuntu 24.04.
     sudo apt-get install -y ffmpeg
-    
-    # Проверяем, установился ли FFmpeg
-    if ! command -v ffmpeg &> /dev/null; then
-        echo "Не удалось установить FFmpeg из стандартных репозиториев. Пробуем альтернативный метод..."
-        
-        # Устанавливаем необходимые пакеты для сборки
-        sudo apt-get install -y build-essential yasm cmake libtool libc6 libc6-dev unzip wget libnuma1 libnuma-dev
-        
-        # Создаем временную директорию для сборки
-        TEMP_DIR=$(mktemp -d)
-        cd $TEMP_DIR
-        
-        # Скачиваем и устанавливаем FFmpeg из официального репозитория
-        wget https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2
-        tar xjf ffmpeg-snapshot.tar.bz2
-        cd ffmpeg
-        
-        # Конфигурируем и собираем FFmpeg
-        ./configure --prefix=/usr/local --enable-gpl --enable-nonfree
-        make -j$(nproc)
-        sudo make install
-        
-        # Возвращаемся в исходную директорию и удаляем временные файлы
-        cd -
-        rm -rf $TEMP_DIR
-        
-        # Проверяем, установился ли FFmpeg
-        if command -v ffmpeg &> /dev/null; then
-            echo "FFmpeg успешно установлен из исходников."
-        else
-            echo "ВНИМАНИЕ: Не удалось установить FFmpeg. Пожалуйста, установите его вручную."
-        fi
+
+    # Проверяем, успешно ли установился FFmpeg после попытки установки
+    if command -v ffmpeg &> /dev/null; then
+        echo "FFmpeg успешно установлен."
     else
-        echo "FFmpeg успешно установлен из стандартных репозиториев."
+        # Этот случай маловероятен на Ubuntu 24.04, если apt update отработал без серьезных ошибок
+        echo "ВНИМАНИЕ: Не удалось установить FFmpeg из стандартных репозиториев."
+        echo "Пожалуйста, попробуйте установить FFmpeg вручную командой: sudo apt-get install ffmpeg"
+        # Если FFmpeg абсолютно необходим, можно добавить exit 1 здесь
+        # exit 1
     fi
 else
     echo "FFmpeg уже установлен."
 fi
 
-# Создание виртуального окружения Python (опционально)
-echo "Создание виртуального окружения Python..."
+# Установка python3-venv для создания виртуального окружения
+echo "Установка python3-venv..."
 if ! command -v python3 -m venv &> /dev/null; then
+    echo "Пакет python3-venv не найден. Устанавливаем..."
     sudo apt-get install -y python3-venv
+else
+    echo "Пакет python3-venv уже установлен."
 fi
 
+
+# --- Шаг 3: Настройка Python окружения ---
+
+# Создание виртуального окружения Python
+echo "Создание виртуального окружения Python в директории ./venv..."
 # Создаем виртуальное окружение, если его нет
 if [ ! -d "venv" ]; then
     python3 -m venv venv
-    echo "Виртуальное окружение создано."
+    echo "Виртуальное окружение создано в ./venv."
 else
-    echo "Виртуальное окружение уже существует."
+    echo "Виртуальное окружение ./venv уже существует."
 fi
 
-# Активация виртуального окружения
-echo "Активация виртуального окружения..."
+# Активация виртуального окружения для выполнения следующих команд
+echo "Активация виртуального окружения (в рамках текущего скрипта)..."
 source venv/bin/activate
+# Проверка, что активация прошла успешно (опционально)
+if [ "$VIRTUAL_ENV" == "" ]; then
+    echo "ВНИМАНИЕ: Не удалось активировать виртуальное окружение."
+    echo "Установка Python-пакетов может пройти некорректно."
+fi
+
 
 # Обновление pip в виртуальном окружении
+echo "Обновление pip в виртуальном окружении..."
 pip install --upgrade pip
 
 # Установка зависимостей из requirements.txt
 echo "Установка Python-пакетов из requirements.txt..."
-pip install -r requirements.txt
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt
+    if [ $? -ne 0 ]; then
+        echo "ВНИМАНИЕ: Установка Python-пакетов завершилась с ошибками."
+        echo "Пожалуйста, проверьте вывод выше на детали ошибки pip install."
+        # Можно добавить exit 1 здесь
+        # exit 1
+    else
+         echo "Установка Python-пакетов завершена."
+    fi
+else
+    echo "ВНИМАНИЕ: Файл requirements.txt не найден в текущей директории."
+    echo "Проект может не работать без установки необходимых Python-пакетов."
+fi
+
+
+# --- Шаг 4: Проверка файла настроек ---
 
 # Проверка наличия файла .env
 echo "Проверка файла .env..."
 if [ ! -f ".env" ]; then
     echo "ВНИМАНИЕ: Файл .env не найден. Создаем шаблон файла .env."
     echo "# Настройки API для Gemini" > .env
-    echo "GEMINI_API_KEY=ваш_ключ_api" >> .env
-    echo "GEMINI_MODEL=gemini-2.5-flash-preview-04-17" >> .env
-    echo "Создан шаблон файла .env. Пожалуйста, отредактируйте его и добавьте ваш API ключ."
+    echo "# Получите ваш ключ API здесь: https://ai.google.dev/" >> .env
+    echo "GEMINI_API_KEY=ВАШ_КЛЮЧ_API_ЗДЕСЬ" >> .env
+    echo "" >> .env
+    echo "# Модель Gemini для использования (например, gemini-1.5-flash-latest или gemini-1.5-pro-latest)" >> .env
+    echo "GEMINI_MODEL=gemini-1.5-flash-latest" >> .env # Использование последней флэш-модели по умолчанию
+    echo "" >> .env
+    echo "# Опционально: Настройки для транскрипции аудио/видео" >> .env
+    echo "# WHISPER_MODEL=base # Добавьте эту строку и установите пакеты whisper, если используете его" >> .env
+
+    echo "Создан шаблон файла .env. Пожалуйста, отредактируйте его и добавьте ваш настоящий API ключ Gemini."
 else
     echo "Файл .env найден."
 fi
 
-echo "Установка завершена!"
-echo "Для активации виртуального окружения используйте команду: source venv/bin/activate"
-echo "ВАЖНО: Убедитесь, что в файле .env указан правильный API ключ для Gemini."
+
+# --- Шаг 5: Завершение ---
+
+# Деактивация виртуального окружения (в рамках скрипта) - необязательно, т.к. оно будет деактивировано после завершения скрипта
+# Но явное указание может быть полезно в более сложных скриптах.
+# deactivate
+
+echo "" # Пустая строка для разделения вывода
+echo "--------------------------------------------------"
+echo "Установка зависимостей завершена!"
+echo "--------------------------------------------------"
+echo "Для запуска проекта сначала активируйте виртуальное окружение:"
+echo "  source venv/bin/activate"
+echo ""
+echo "ВАЖНО: Отредактируйте файл .env и замените 'ВАШ_КЛЮЧ_API_ЗДЕСЬ' на ваш настоящий API ключ Gemini."
+echo "--------------------------------------------------"
