@@ -32,8 +32,8 @@
 
 3. **Клонирование репозитория**:
    ```
-   git clone <url-репозитория>
-   cd split_video
+   git clone https://github.com/Yaroslavlazarenko/Video-Transcription-Tool.git
+   cd Video-Transcription-Tool
    ```
 
 4. **Создание виртуального окружения**:
@@ -60,6 +60,7 @@
    ```
    mkdir video
    mkdir transcribed_text
+   mkdir audio_segments
    ```
 
 ### Для Linux
@@ -110,8 +111,8 @@
 
    - **Клонирование репозитория**:
      ```
-     git clone <url-репозитория>
-     cd split_video
+     git clone https://github.com/Yaroslavlazarenko/Video-Transcription-Tool.git
+     cd Video-Transcription-Tool
      ```
 
    - **Создание виртуального окружения**:
