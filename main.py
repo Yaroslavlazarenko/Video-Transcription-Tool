@@ -2,13 +2,13 @@ import subprocess
 import argparse
 import os
 import time
+import sys
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import shutil
 import tempfile
 import google.generativeai as genai
 import traceback
-import docx
 from docx import Document
 import re  # Импортируем модуль regular expressions
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -71,8 +71,8 @@ def validate_gemini_api_key(api_key):
 try:
     # Проверка формата API ключа перед использованием
     if not validate_gemini_api_key(GEMINI_API_KEY):
-        logging.warning("Используется некорректный формат API ключа Gemini. Транскрипция будет пропущена.")
-        SKIP_TRANSCRIPTION = True
+        logging.error("Ошибка: Используется некорректный формат API ключа Gemini. Программа будет завершена.")
+        sys.exit(1)  # Завершаем программу с кодом ошибки
     else:
         # Конфигурируем API только если ключ прошел валидацию
         genai.configure(api_key=GEMINI_API_KEY)
@@ -80,7 +80,8 @@ try:
         logging.info(f"API Gemini успешно инициализирован, используется модель {GEMINI_MODEL}")
 except Exception as e:
     logging.error(f"Ошибка при инициализации API Gemini: {e}")
-    SKIP_TRANSCRIPTION = True  # Автоматически отключаем транскрипцию при ошибке инициализации
+    logging.error("Программа будет завершена, так как API недоступен.")
+    sys.exit(1)  # Завершаем программу с кодом ошибки
 
 def process_with_neural_network(audio_file):
     """
@@ -240,8 +241,9 @@ def extract_audio_sequential(input_video, segment_duration=600, output_dir=None,
         
         # Проверяем, есть ли уже транскрибированный файл для этого видео
         transcribed_file = os.path.join(TRANSCRIBED_FOLDER, f"{base_name}.docx")
-        if os.path.exists(transcribed_file):
-            logging.info(f"Файл {transcribed_file} уже существует, пропускаем транскрипцию")
+        transcribed_txt_file = os.path.join(TRANSCRIBED_FOLDER, f"{base_name}.txt")
+        if os.path.exists(transcribed_file) and os.path.exists(transcribed_txt_file):
+            logging.info(f"Файлы {transcribed_file} и {transcribed_txt_file} уже существуют, пропускаем транскрипцию")
             return True
 
         # Создаем временную папку для обработки
@@ -332,14 +334,21 @@ def extract_audio_sequential(input_video, segment_duration=600, output_dir=None,
         # Параллельная обработка аудиосегментов
         docx_files = []  # Список для хранения путей к файлам .docx с транскрипциями
         
+        # SKIP_TRANSCRIPTION всегда должен быть False здесь, так как мы завершаем программу при ошибке API
+        # Этот блок кода теперь не должен выполняться, но оставляем его на всякий случай
         if SKIP_TRANSCRIPTION:
-            # Если транскрипция отключена, создаем пустой документ
-            logging.info("Транскрипция отключена. Создаем пустой документ.")
-            dummy_file = os.path.join(output_dir, f"{base_name}_dummy_transcript.docx")
-            doc = Document()
-            doc.add_paragraph(f"Аудио извлечено из {input_video}. Транскрипция отключена из-за недоступности API.")
-            doc.save(dummy_file)
-            docx_files.append(dummy_file)
+            logging.error("Транскрипция отключена из-за проблем с API. Программа будет завершена.")
+            # Удаляем временные файлы
+            for audio_segment in audio_segments:
+                try:
+                    os.remove(audio_segment)
+                except:
+                    pass
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+            sys.exit(1)  # Завершаем программу с кодом ошибки
         else:
             # Обычная обработка с транскрипцией
             with ThreadPoolExecutor(max_workers=max_transcription_workers) as executor:
