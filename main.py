@@ -34,10 +34,50 @@ os.makedirs(TRANSCRIBED_FOLDER, exist_ok=True)
 # Флаг для отключения транскрипции, если API недоступен
 SKIP_TRANSCRIPTION = False  # Установите True, чтобы пропустить транскрипцию и создать пустой документ
 
+# Функция для проверки формата API ключа Gemini
+def validate_gemini_api_key(api_key):
+    """
+    Проверяет формат API ключа Gemini.
+    Ключи Gemini обычно начинаются с 'AIza' и имеют определенную длину.
+    
+    Args:
+        api_key (str): API ключ для проверки
+        
+    Returns:
+        bool: True, если ключ имеет правильный формат, иначе False
+    """
+    # Проверка, что ключ не пустой
+    if not api_key:
+        logging.error("Ошибка: API ключ Gemini не указан")
+        return False
+    
+    # Проверка, что ключ начинается с 'AIza'
+    if not api_key.startswith('AIza'):
+        logging.error(f"Ошибка: API ключ Gemini должен начинаться с 'AIza', получено: {api_key[:4]}...")
+        return False
+    
+    # Проверка длины ключа (обычно около 39 символов)
+    if len(api_key) < 30:
+        logging.error(f"Ошибка: API ключ Gemini слишком короткий (длина: {len(api_key)})")
+        return False
+    
+    # Проверка, что ключ содержит только допустимые символы
+    if not re.match(r'^[A-Za-z0-9_-]+$', api_key):
+        logging.error("Ошибка: API ключ Gemini содержит недопустимые символы")
+        return False
+    
+    return True
+
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_MODEL)  # Используем модель из файла .env
-    logging.info(f"API Gemini успешно инициализирован, используется модель {GEMINI_MODEL}")
+    # Проверка формата API ключа перед использованием
+    if not validate_gemini_api_key(GEMINI_API_KEY):
+        logging.warning("Используется некорректный формат API ключа Gemini. Транскрипция будет пропущена.")
+        SKIP_TRANSCRIPTION = True
+    else:
+        # Конфигурируем API только если ключ прошел валидацию
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(GEMINI_MODEL)  # Используем модель из файла .env
+        logging.info(f"API Gemini успешно инициализирован, используется модель {GEMINI_MODEL}")
 except Exception as e:
     logging.error(f"Ошибка при инициализации API Gemini: {e}")
     SKIP_TRANSCRIPTION = True  # Автоматически отключаем транскрипцию при ошибке инициализации
