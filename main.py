@@ -11,6 +11,7 @@ import traceback
 import docx
 from docx import Document
 import re  # Импортируем модуль regular expressions
+import platform  # Для определения операционной системы
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from dotenv import load_dotenv
 
@@ -30,6 +31,11 @@ TRANSCRIBED_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "t
 
 # Создаем папку для транскрибированных текстов, если она не существует
 os.makedirs(TRANSCRIBED_FOLDER, exist_ok=True)
+
+# Определяем операционную систему
+IS_LINUX = platform.system() == "Linux"
+if IS_LINUX:
+    logging.info("Обнаружена операционная система Linux. Будет создан дополнительный текстовый файл (.txt) с транскрипцией.")
 
 # Флаг для отключения транскрипции, если API недоступен
 SKIP_TRANSCRIPTION = False  # Установите True, чтобы пропустить транскрипцию и создать пустой документ
@@ -109,6 +115,29 @@ def process_with_neural_network(audio_file):
 
 
 
+
+def save_transcription_to_txt(transcription, output_file):
+    """
+    Сохранить транскрипцию в обычный текстовый файл .txt
+    
+    Args:
+        transcription (str): Текст транскрипции
+        output_file (str): Путь к файлу для сохранения (.txt будет добавлен, если отсутствует)
+    """
+    try:
+        # Убедимся, что файл имеет расширение .txt
+        if not output_file.lower().endswith('.txt'):
+            output_file = output_file + '.txt'
+            
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(transcription)
+            
+        logging.info(f"Транскрипция успешно сохранена в текстовый файл: {output_file}")
+        return True
+    except Exception as e:
+        logging.error(f"Ошибка при сохранении транскрипции в текстовый файл: {e}")
+        traceback.print_exc()
+        return False
 
 def save_transcription_to_docx(transcription, output_file):
     """
