@@ -182,26 +182,53 @@ def merge_docx_files(docx_files, output_path):
     """
     Объединить несколько .docx файлов в один, сохраняя форматирование.
     """
-    merged_doc = Document()
+    if not docx_files:
+        logging.warning("Нет файлов для объединения.")
+        return
 
-    for docx_file in docx_files:
+    # Создаем новый документ на основе первого файла
+    merged_doc = Document(docx_files[0])
+    
+    # Добавляем содержимое остальных файлов
+    for file_path in docx_files[1:]:
         try:
-            doc = Document(docx_file)
+            doc = Document(file_path)
             for element in doc.element.body:
                 merged_doc.element.body.append(element)
         except Exception as e:
-            logging.error(f"Ошибка при объединении файла {docx_file}: {e}")
-
-    # Создаем папку для файла, если она не существует
+            logging.error(f"Ошибка при объединении файла {file_path}: {e}")
+    
+    # Создаем папку для выходного файла, если она не существует
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     merged_doc.save(output_path)
-    logging.info(f"Файлы успешно объединены в {output_path}")
 
-    # Удалить все промежуточные файлы
-    for docx_file in docx_files:
-        os.remove(docx_file)
-
-    logging.info("Промежуточные файлы .docx удалены")
+def docx_to_txt(docx_file, txt_file):
+    """
+    Конвертирует файл .docx в файл .txt, сохраняя текстовое содержимое.
+    
+    Args:
+        docx_file (str): Путь к исходному файлу .docx
+        txt_file (str): Путь для сохранения файла .txt
+    """
+    try:
+        doc = Document(docx_file)
+        text_content = []
+        
+        for paragraph in doc.paragraphs:
+            text_content.append(paragraph.text)
+        
+        # Создаем папку для выходного файла, если она не существует
+        os.makedirs(os.path.dirname(txt_file), exist_ok=True)
+        
+        # Записываем текст в файл .txt
+        with open(txt_file, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(text_content))
+        
+        logging.info(f"Текстовая копия сохранена в {txt_file}")
+        return True
+    except Exception as e:
+        logging.error(f"Ошибка при конвертации {docx_file} в TXT: {e}")
+        return False
 
 def extract_audio_sequential(input_video, segment_duration=600, output_dir=None, audio_format='mp3', audio_bitrate='192k', max_transcription_workers=4):
     """
@@ -342,6 +369,10 @@ def extract_audio_sequential(input_video, segment_duration=600, output_dir=None,
         final_transcript_file = os.path.join(TRANSCRIBED_FOLDER, f"{base_name}.docx")
         merge_docx_files(docx_files, final_transcript_file)
         logging.info(f"Файл {final_transcript_file} успешно создан.")
+        
+        # Создание текстовой копии финального файла
+        final_txt_file = os.path.join(TRANSCRIBED_FOLDER, f"{base_name}.txt")
+        docx_to_txt(final_transcript_file, final_txt_file)
         
         # Убрано ожидание и дополнительная обработка структуры
 
